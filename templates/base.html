@@ -1,0 +1,27 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}{{ site.get('site_name','SAMS') }} V3{% endblock %}</title>
+<style>:root{--primary:{{ site.get('primary_color','#df2031') }};--accent:{{ site.get('accent_color','#27ca78') }};--bg:{{ site.get('background_color','#07090c') }};--surface:{{ site.get('surface_color','#101318') }};--text:{{ site.get('text_color','#f4f6f9') }};}</style>
+<link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head><body>
+{% if current_user %}
+<div class="shell"><aside class="sidebar">
+<a class="brand" href="{{ url_for('dashboard') }}"><span class="logo">{{ site.get('logo_symbol','✚') }}</span><span><b>{{ site.get('site_name','SAMS') }}</b><small>{{ site.get('site_subtitle','EMS') }}</small></span></a>
+<nav>
+{% for n in nav_items %}
+  {% if (not n['admin_only'] or current_user['role']=='admin') and (not n['module_key'] or mods.get(n['module_key'],False)) %}
+    {% if n['endpoint'] in ['dashboard','operations','personnel','fleet','medical','reports','training','planning','leave','rules','announcements','sanctions','admin','site_studio'] %}
+    <a class="{{ 'active' if request.endpoint==n['endpoint'] or (n['endpoint']=='medical' and request.endpoint=='patient') else '' }}" href="{{ url_for(n['endpoint']) }}"><span>{{ n['icon'] }}</span><b>{{ n['label'] }}</b></a>
+    {% endif %}
+  {% endif %}
+{% endfor %}
+{% for p in custom_nav_pages %}
+<a class="{{ 'active' if request.endpoint=='custom_page' and request.view_args and request.view_args.get('slug')==p['slug'] else '' }}" href="{{ url_for('custom_page',slug=p['slug']) }}"><span>▤</span><b>{{ p['title'] }}</b></a>
+{% endfor %}
+</nav>
+<div class="sidebar-bottom"><a href="{{ url_for('notifications') }}">🔔 Notifications {% if unread_notifications %}<i>{{ unread_notifications }}</i>{% endif %}</a><a href="{{ url_for('profile') }}">👤 Mon profil</a><a href="{{ url_for('logout') }}">↪ Déconnexion</a></div>
+</aside>
+<main><header class="topbar"><div><p>{{ site.get('site_full_name','San Andreas Medical Services') }}</p><h1>{% block page_title %}{% endblock %}</h1></div><div class="user-pill"><span class="live"></span>{{ current_user['callsign'] or current_user['matricule'] }} · {{ current_user['grade_name'] }}</div></header>
+{% with messages=get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flashes">{% for c,m in messages %}<div class="flash {{ c }}">{{ m }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+<section class="content">{% block content %}{% endblock %}</section>
+<footer>{{ site.get('footer_text','Portail interne SAMS / EMS') }}</footer></main></div>
+{% else %}{% block public_content %}{% endblock %}{% endif %}
+<script src="{{ url_for('static',filename='app.js') }}"></script></body></html>

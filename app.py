@@ -1,84 +1,25 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
-import os
-import re
-import psycopg
-from psycopg.rows import dict_row
+import sqlite3
 from pathlib import Path
 from datetime import datetime, timedelta
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "sams_v3.db"
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SAMS_SECRET_KEY", "CHANGE-ME-SAMS-V3-PUBLIC-DEPLOYMENT")
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=True)
-
-def _sql(sql):
-    """Convert the small SQLite-flavoured query subset used by the V3 to PostgreSQL."""
-    s = sql
-    # SQLite positional placeholders -> psycopg placeholders.
-    s = s.replace("?", "%s")
-
-    # SQLite schema syntax -> PostgreSQL.
-    s = s.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
-
-    # INSERT OR IGNORE -> PostgreSQL ON CONFLICT DO NOTHING.
-    m = re.match(r"(?is)^\s*INSERT\s+OR\s+IGNORE\s+INTO\s+(.+)$", s)
-    if m:
-        s = "INSERT INTO " + m.group(1)
-        if "ON CONFLICT" not in s.upper():
-            s = s.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
-
-    # The only INSERT OR REPLACE in this project is certifications.
-    m = re.match(r"(?is)^\s*INSERT\s+OR\s+REPLACE\s+INTO\s+certifications\s*\((.*?)\)\s*VALUES\s*\((.*?)\)\s*$", s.strip().rstrip(";"))
-    if m:
-        cols = [c.strip() for c in m.group(1).split(",")]
-        values = m.group(2)
-        updates = [c for c in cols if c not in ("user_id", "training_id")]
-        s = (
-            f"INSERT INTO certifications ({', '.join(cols)}) VALUES ({values}) "
-            "ON CONFLICT (user_id, training_id) DO UPDATE SET "
-            + ", ".join(f"{c}=EXCLUDED.{c}" for c in updates)
-        )
-    return s
-
-class PgDB:
-    def __init__(self):
-        if not DATABASE_URL:
-            raise RuntimeError("DATABASE_URL manquant. Ajoute l'URL Neon dans les variables d'environnement Render.")
-        self.conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
-
-    def execute(self, sql, params=()):
-        cur = self.conn.cursor()
-        cur.execute(_sql(sql), params)
-        return cur
-
-    def executemany(self, sql, seq):
-        cur = self.conn.cursor()
-        cur.executemany(_sql(sql), seq)
-        return cur
-
-    def executescript(self, script):
-        cur = self.conn.cursor()
-        # The schema script contains no semicolons inside values/strings.
-        for stmt in script.split(";"):
-            stmt = stmt.strip()
-            if stmt:
-                cur.execute(_sql(stmt))
-        return cur
-
-    def commit(self):
-        self.conn.commit()
-
-    def rollback(self):
-        self.conn.rollback()
-
-    def close(self):
-        self.conn.close()
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
 def db():
-    return PgDB()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
 
 def now():
     return datetime.now().isoformat(timespec="seconds")
@@ -391,12 +332,7 @@ def init_db():
     """)
 
     # Migration V3.1: accès par ID Discord autorisé, sans bot ni API Discord.
-    user_columns = {
-        row["column_name"]
-        for row in conn.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_name='users'"
-        ).fetchall()
-    }
+    user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
     if "discord_authorized" not in user_columns:
         conn.execute("ALTER TABLE users ADD COLUMN discord_authorized INTEGER NOT NULL DEFAULT 0")
 
@@ -964,9 +900,6 @@ def e403(_): return render_template("error.html",code=403,message="Accès Direct
 @app.errorhandler(404)
 def e404(_): return render_template("error.html",code=404,message="Page introuvable."),404
 
-# Initialise automatiquement le schéma au démarrage du service (y compris avec Gunicorn).
-if DATABASE_URL:
-    init_db()
-
 if __name__=="__main__":
+    init_db()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)

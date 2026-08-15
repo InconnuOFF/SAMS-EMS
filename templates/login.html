@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block public_content %}
+<div class="auth-page"><div class="auth-card"><div class="logo big">{{ site.get('logo_symbol','✚') }}</div><p class="eyebrow">{{ site.get('site_full_name') }}</p><h1>{{ site.get('login_title') }}</h1><p class="muted">{{ site.get('login_description') }}</p>
+{% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash {{ c }}">{{ m }}</div>{% endfor %}{% endwith %}
+<form method="post" class="stack"><label>ID Discord<input name="discord_id" inputmode="numeric" pattern="[0-9]{15,22}" required placeholder="123456789012345678"></label><label>Mot de passe<input type="password" name="password" required></label><button class="btn primary">SE CONNECTER</button></form>
+<div class="demo"><b>Accès uniquement si l'ID Discord est autorisé par la Direction.</b><br>Compte test Direction : 111111111111111111 / SAMS2026!</div>
+<a class="apply-link" href="{{ url_for('apply') }}">Déposer une candidature SAMS →</a></div></div>
+{% endblock %}
