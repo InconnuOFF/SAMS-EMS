@@ -1,0 +1,1 @@
+{% extends "base.html" %}{% block page_title %}Notifications{% endblock %}{% block content %}<section class="panel">{% for n in notifications %}<article class="notif {{ n['level'] }}"><div><b>{{ n['title'] }}</b><small>{{ n['created_at'] }}</small></div><p>{{ n['message'] }}</p></article>{% else %}<div class="empty">Aucune notification.</div>{% endfor %}</section>{% endblock %}
