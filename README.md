@@ -1,52 +1,81 @@
-# SAMS / EMS Portal V3.1 — Whitelist par ID Discord
+# SAMS / EMS Portal V3 — Hébergement gratuit Render + Neon
 
-Aucun bot Discord et aucune API Discord ne sont nécessaires.
+Cette version remplace SQLite par PostgreSQL pour éviter la perte des données
+quand Render Free redémarre ou met le site en veille.
 
-## Connexion
-Un employé peut entrer sur le site uniquement si :
-- son ID Discord est enregistré ;
-- la Direction a coché « Autoriser cet ID à se connecter » ;
-- son compte est actif ;
-- son mot de passe est correct.
+## Architecture gratuite
 
-Connaître seulement l'ID Discord de quelqu'un ne suffit donc pas.
+- Site Flask : Render Web Service Free
+- Base de données : Neon PostgreSQL Free
+- Coût : 0 € tant que tu restes dans les limites gratuites
 
-## Compte Direction de démonstration
-ID Discord : `111111111111111111`
-Mot de passe : `SAMS2026!`
+## Important
 
-Connecte-toi avec ce compte, ouvre **Administration > Personnel**, puis remplace immédiatement cet ID de démonstration par ton vrai ID Discord et coche l'autorisation.
+Render Free met le site en veille après une période d'inactivité.
+La première ouverture après la veille peut donc être plus lente.
 
-## Autoriser un employé
-Dans **Administration > Personnel** :
-1. ouvre ou crée sa fiche ;
-2. colle son ID Discord ;
-3. coche **Autoriser cet ID à se connecter** ;
-4. donne-lui son mot de passe ;
-5. sauvegarde.
+La base Neon reste séparée du disque local de Render, donc les employés,
+IDs Discord autorisés, sanctions, dossiers, planning, réglages du Studio,
+etc. ne dépendent plus du stockage temporaire du serveur Render.
 
-Pour retirer l'accès : décoche l'autorisation ou suspends le compte.
+## 1. Créer la base Neon
 
-## Trouver un ID Discord
-Dans Discord : Paramètres utilisateur > Avancé > active **Mode développeur**, puis clic droit sur le membre > **Copier l'identifiant utilisateur**.
+1. Crée un compte Neon.
+2. Crée un nouveau projet PostgreSQL.
+3. Clique sur **Connect**.
+4. Copie la chaîne de connexion, qui ressemble à :
 
-## Lancement
-```powershell
-python -m pip install -r requirements.txt
-python app.py
+```text
+postgresql://utilisateur:motdepasse@xxxxx.neon.tech/neondb?sslmode=require
 ```
-Puis ouvre `http://127.0.0.1:5000`.
 
-## Avant mise en ligne publique
-Change `SAMS_SECRET_KEY`, active HTTPS, ajoute une protection CSRF, utilise un serveur WSGI, et utilise un mot de passe unique par employé.
+Garde cette URL privée.
 
+## 2. Mettre les fichiers sur GitHub
 
-## Déploiement 24/7
-Cette édition est prête pour un hébergeur Python avec Gunicorn.
-- Commande de build : `pip install -r requirements.txt`
-- Commande de démarrage : `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120`
-- Variable obligatoire : `SAMS_SECRET_KEY`
-- Variable recommandée avec stockage persistant : `DATA_DIR`
-- `render.yaml` est fourni pour un Blueprint Render.
+Remplace les fichiers de ton dépôt SAMS-EMS par cette version.
+Les fichiers importants sont notamment :
 
-Important : SQLite doit être placé sur un disque persistant. Le fichier `render.yaml` prévoit un disque pour cela.
+- app.py
+- requirements.txt
+- render.yaml
+- Procfile
+- templates/
+- static/
+
+## 3. Render
+
+Dans Render :
+
+1. New + → Blueprint
+2. Sélectionne ton dépôt GitHub SAMS-EMS
+3. Render lit `render.yaml`
+4. Pour `DATABASE_URL`, colle l'URL copiée depuis Neon
+5. Lance le déploiement
+
+`SAMS_SECRET_KEY` est générée automatiquement par Render.
+
+## Premier compte Direction
+
+À la toute première création d'une base vide :
+
+ID Discord :
+111111111111111111
+
+Mot de passe :
+SAMS2026!
+
+Connecte-toi puis remplace cet ID de démonstration par ton vrai ID Discord
+dans Administration → Personnel.
+
+## Données
+
+Toutes les données applicatives sont enregistrées dans PostgreSQL Neon :
+personnel, whitelist Discord, grades, divisions, appels, véhicules,
+patients, rapports, formations, planning, congés, sanctions, candidatures,
+notifications, réglages et contenu du Studio.
+
+## Sécurité
+
+Ne mets jamais `DATABASE_URL` dans GitHub.
+Elle doit uniquement être enregistrée comme variable d'environnement Render.

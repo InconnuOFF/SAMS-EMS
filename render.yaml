@@ -2,17 +2,14 @@ services:
   - type: web
     name: sams-ems-portal
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /
     envVars:
       - key: SAMS_SECRET_KEY
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.13.7
-      - key: DATA_DIR
-        value: /opt/render/project/src/data
-    disk:
-      name: sams-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+      - key: DATABASE_URL
+        sync: false
